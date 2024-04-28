@@ -6,6 +6,7 @@ mod run {
     use corundum::stat::*;
     use corundum::open_flags::*;
     use corundum::stm::{Log, Logger, Notifier};
+    use std::arch::asm;
     
     type P = Allocator;
     const CNT: usize = 50000;
@@ -28,7 +29,7 @@ mod run {
         };
     }
     
-    fn main() {
+    pub fn main() {
         use std::env;
         use std::vec::Vec as StdVec;
     

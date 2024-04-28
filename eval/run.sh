@@ -63,7 +63,6 @@ do
 done
 
 source $HOME/.corundum/env
-rustup default nightly
 
 [ -f $dir_path/inputs.tar.gz ] || [ -d $dir_path/inputs ] || \
     wget https://github.com/NVSL/Corundum/raw/24130f8789b4bed6cf6526562045586e19e88592/eval/inputs.tar.gz

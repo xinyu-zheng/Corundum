@@ -102,13 +102,11 @@
 //! [`open<T>()`]: ./alloc/struct.MemPool.html#method.open
 
 #![feature(auto_traits)]
-#![feature(untagged_unions)]
 #![feature(specialization)]
 #![feature(concat_idents)]
 #![feature(core_intrinsics)]
 #![feature(thread_id_value)]
 #![feature(negative_impls)]
-#![feature(backtrace)]
 #![feature(trusted_len)]
 #![feature(exact_size_is_empty)]
 #![feature(alloc_layout_extra)]
@@ -118,22 +116,20 @@
 #![feature(trait_alias)]
 #![feature(slice_concat_trait)]
 #![feature(slice_partition_dedup)]
-#![feature(type_name_of_val)]
 #![feature(pattern)]
 #![feature(str_internals)]
-#![feature(toowned_clone_into)]
 #![feature(fn_traits)]
 #![feature(unboxed_closures)]
 #![feature(let_chains)]
 #![feature(c_variadic)]
 #![feature(rustc_attrs)]
 #![feature(allocator_api)]
-#![feature(associated_type_bounds)]
 // #![feature(async_stream)]
 
 #![allow(dead_code)]
 #![allow(incomplete_features)]
 #![allow(type_alias_bounds)]
+#![allow(invalid_reference_casting)]
 
 pub(crate) const PAGE_LOG_SLOTS: usize = 128;
 
