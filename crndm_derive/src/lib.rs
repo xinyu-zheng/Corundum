@@ -1,4 +1,5 @@
-#![feature(lazy_cell)]
+#![feature(once_cell)]
+#![feature(type_name_of_val)]
 #![feature(proc_macro_span)]
 
 use proc_macro2::Group;

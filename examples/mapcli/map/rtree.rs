@@ -1,5 +1,3 @@
-#![allow(invalid_reference_casting)]
-
 use crate::map::Map;
 use corundum::default::*;
 
