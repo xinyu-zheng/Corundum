@@ -1,5 +1,6 @@
 use crate::alloc::MemPool;
 use crate::{PSafe, VSafe, utils};
+use std::cell::UnsafeCell;
 use std::cmp::*;
 use std::mem::*;
 use std::marker::PhantomData;
@@ -37,7 +38,7 @@ use std::ops::{Deref, DerefMut};
 pub struct VCell<T: Default + VSafe + ?Sized, A: MemPool> {
     phantom: PhantomData<(A, T)>,
     gen: u32,
-    value: T,
+    value: UnsafeCell<T>,
 }
 
 /// Safe to transfer between thread boundaries
@@ -52,14 +53,14 @@ impl<T: Default + VSafe, A: MemPool> VCell<T, A> {
     pub fn new(v: T) -> Self {
         Self {
             gen: A::gen(),
-            value: v,
+            value: UnsafeCell::new(v),
             phantom: PhantomData,
         }
     }
 
     #[inline]
     pub(crate) fn as_mut(&self) -> &mut T {
-        unsafe { &mut *(self.deref() as *const T as *mut T) }
+        unsafe {&mut *self.value.get()}
     }
 
     #[inline]
@@ -67,7 +68,7 @@ impl<T: Default + VSafe, A: MemPool> VCell<T, A> {
     pub const fn new_invalid(v: T) -> Self {
         Self {
             gen: 0,
-            value: v,
+            value: UnsafeCell::new(v),
             phantom: PhantomData,
         }
     }
@@ -86,12 +87,12 @@ impl<T: Default + VSafe, A: MemPool> VCell<T, A> {
                 let z = A::zone(off);
                 A::prepare(z); // Used as a global lock
                 if self.gen != gen {
-                    forget(replace(&mut self.value, T::default()));
+                    forget(replace(&mut self.value, UnsafeCell::new(T::default())));
                     self.gen = gen;
                 }
                 A::perform(z);
             }
-            &mut self.value
+            self.value.get_mut()
         }
     }
 }
@@ -100,7 +101,7 @@ impl<T: Default + VSafe, A: MemPool> Default for VCell<T, A> {
     fn default() -> Self {
         Self {
             gen: A::gen(),
-            value: T::default(),
+            value: UnsafeCell::new(T::default()),
             phantom: PhantomData,
         }
     }
@@ -125,7 +126,7 @@ impl<T: Default + VSafe, A: MemPool> DerefMut for VCell<T, A> {
 impl<T: Default + VSafe + PartialEq + Copy, A: MemPool> PartialEq for VCell<T, A> {
     #[inline]
     fn eq(&self, other: &VCell<T, A>) -> bool {
-        self.value == other.value
+        unsafe {*self.value.get() == *other.value.get()}
     }
 }
 
@@ -134,67 +135,67 @@ impl<T: Default + VSafe + Eq + Copy, A: MemPool> Eq for VCell<T, A> {}
 impl<T: Default + VSafe + PartialOrd + Copy, A: MemPool> PartialOrd for VCell<T, A> {
     #[inline]
     fn partial_cmp(&self, other: &VCell<T, A>) -> Option<Ordering> {
-        self.value.partial_cmp(&other.value)
+        unsafe {(*self.value.get()).partial_cmp(&*other.value.get())}
     }
 
     #[inline]
     fn lt(&self, other: &VCell<T, A>) -> bool {
-        self.value < other.value
+        unsafe {*self.value.get() < *other.value.get()}
     }
 
     #[inline]
     fn le(&self, other: &VCell<T, A>) -> bool {
-        self.value <= other.value
+        unsafe {*self.value.get() <= *other.value.get()}
     }
 
     #[inline]
     fn gt(&self, other: &VCell<T, A>) -> bool {
-        self.value > other.value
+        unsafe {*self.value.get() > *other.value.get()}
     }
 
     #[inline]
     fn ge(&self, other: &VCell<T, A>) -> bool {
-        self.value >= other.value
+        unsafe {*self.value.get() >= *other.value.get()}
     }
 }
 
 impl<T: Default + VSafe + Ord + Copy, A: MemPool> Ord for VCell<T, A> {
     #[inline]
     fn cmp(&self, other: &VCell<T, A>) -> Ordering {
-        self.value.cmp(&other.value)
+        unsafe {(*self.value.get()).cmp(&*other.value.get())}
     }
 }
 
 impl<T: Default + VSafe + PartialEq + Copy, A: MemPool> PartialEq<T> for VCell<T, A> {
     #[inline]
     fn eq(&self, other: &T) -> bool {
-        self.value == *other
+        unsafe {*self.value.get() == *other}
     }
 }
 
 impl<T: Default + VSafe + PartialOrd + Copy, A: MemPool> PartialOrd<T> for VCell<T, A> {
     #[inline]
     fn partial_cmp(&self, other: &T) -> Option<Ordering> {
-        self.value.partial_cmp(&other)
+        unsafe {(*self.value.get()).partial_cmp(&other)}
     }
 
     #[inline]
     fn lt(&self, other: &T) -> bool {
-        self.value < *other
+        unsafe {*self.value.get() < *other}
     }
 
     #[inline]
     fn le(&self, other: &T) -> bool {
-        self.value <= *other
+        unsafe {*self.value.get() <= *other}
     }
 
     #[inline]
     fn gt(&self, other: &T) -> bool {
-        self.value > *other
+        unsafe {*self.value.get() > *other}
     }
 
     #[inline]
     fn ge(&self, other: &T) -> bool {
-        self.value >= *other
+        unsafe {*self.value.get() >= *other}
     }
 }

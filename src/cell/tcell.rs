@@ -78,11 +78,6 @@ impl<T: Default + VSafe, A: MemPool> TCell<T, A> {
     }
 
     #[inline]
-    pub(crate) fn as_mut(&self) -> &mut T {
-        unsafe { &mut *(self.deref() as *const T as *mut T) }
-    }
-
-    #[inline]
     /// Create a new invalid cell to be used in const functions
     pub const fn new_invalid(v: T) -> Self {
         Self {

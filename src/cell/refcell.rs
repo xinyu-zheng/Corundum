@@ -208,15 +208,6 @@ impl<T: PSafe + Debug + ?Sized, A: MemPool> Debug for PRefCell<T, A> {
 }
 
 impl<T: PSafe + ?Sized, A: MemPool> PRefCell<T, A> {
-    #[inline(always)]
-    #[allow(clippy::mut_from_ref)]
-    fn self_mut(&self) -> &mut Self {
-        unsafe {
-            let ptr: *const Self = self;
-            &mut *(ptr as *mut Self)
-        }
-    }
-
     #[inline]
     #[allow(clippy::mut_from_ref)]
     /// Takes a log and returns a mutable reference to the underlying data.
@@ -476,7 +467,7 @@ impl<T: PSafe, A: MemPool> PRefCell<T, A> {
             *borrow = 1;
         }
         RefMut {
-            value: unsafe { &mut *(self as *const Self as *mut Self) },
+            value: self as *const Self as *mut Self,
             journal,
             phantom: PhantomData
         }
