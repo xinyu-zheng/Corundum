@@ -1,12 +1,12 @@
 use crate::alloc::MemPool;
 use crate::alloc::PmemUsage;
 use crate::{PSafe, TxOutSafe};
+use std::cell::UnsafeCell;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::ops::*;
 use std::ptr::NonNull;
 
-#[derive(Eq)]
 /// A wrapper around a raw persistent pointer that indicates that the possessor
 /// of this wrapper owns the referent. Useful for building abstractions like
 /// [`Pbox<T,P>`], [`Vec<T,P>`], and [`String<P>`].
@@ -22,7 +22,7 @@ use std::ptr::NonNull;
 /// [`String<P>`]: ../str/struct.String.html
 /// 
 pub struct Ptr<T: ?Sized, A: MemPool> {
-    off: u64,
+    off: UnsafeCell<u64>,
     marker: PhantomData<(A, T)>,
 }
 
@@ -66,7 +66,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     pub(crate) fn new(p: &T) -> Option<Ptr<T, A>> {
         if let Ok(off) = A::off(p) {
             Some(Self {
-                off,
+                off: UnsafeCell::new(off),
                 marker: PhantomData,
             })
         } else {
@@ -77,38 +77,38 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[inline]
     /// Returns the mutable reference of the value
     pub(crate) fn as_mut(&mut self) -> &mut T {
-        unsafe { A::get_mut_unchecked(self.off) }
+        unsafe { A::get_mut_unchecked(*self.off.get()) }
     }
 
     #[inline]
     /// Returns the reference of the value
     pub(crate) fn as_ref(&self) -> &T {
-        unsafe { A::get_unchecked(self.off) }
+        unsafe { A::get_unchecked(*self.off.get()) }
     }
 
     #[inline]
     /// Returns the mutable raw pointer of the value
     pub(crate) fn as_mut_ptr(&mut self) -> *mut T {
-        unsafe { A::get_mut_unchecked(self.off) }
+        unsafe { A::get_mut_unchecked(*self.off.get()) }
     }
 
     #[inline]
     /// Returns the mutable raw pointer of the value
     pub(crate) fn get_mut_ptr(&self) -> *mut T {
-        unsafe { A::get_mut_unchecked(self.off) }
+        unsafe { A::get_mut_unchecked(*self.off.get()) }
     }
 
     #[inline]
     /// Returns the mutable raw pointer of the value
     pub(crate) fn as_ptr(&self) -> *const T {
-        unsafe { A::get_mut_unchecked(self.off) }
+        unsafe { A::get_mut_unchecked(*self.off.get()) }
     }
 
     #[inline]
     #[allow(clippy::mut_from_ref)]
     /// Returns the mutable reference of the value
     pub(crate) fn get_mut(&self) -> &mut T {
-        unsafe { A::get_mut_unchecked(self.off) }
+        unsafe { A::get_mut_unchecked(*self.off.get()) }
     }
 
     /// Creates a new copy of data and returns a `Ptr` pointer
@@ -134,33 +134,35 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[inline]
     /// Checks if this pointer is dangling
     pub fn is_dangling(&self) -> bool {
-        self.off == u64::MAX
+        unsafe { *self.off.get() == u64::MAX }
     }
 
     #[inline]
     /// Returns the file offset
     pub fn off(&self) -> u64 {
-        self.off
+        unsafe { *self.off.get() }
     }
 
 
     #[inline]
     /// Returns a reference to the file offset
     pub fn off_ref(&self) -> &u64 {
-        &self.off
+        unsafe { &*self.off.get() }
     }
 
     #[inline]
     /// Returns a reference to the file offset
     pub(crate) fn off_mut(&self) -> &mut u64 {
-        unsafe { &mut *(&self.off as *const u64 as *mut u64) }
+        unsafe { &mut *(self.off.get() as *const u64 as *mut u64) }
     }
 
     #[inline]
     pub(crate) fn replace(&self, new: u64) -> u64 {
-        let old = self.off;
-        *self.off_mut() = new;
-        old
+        unsafe { 
+            let old = *self.off.get(); 
+            *self.off_mut() = new;
+            old
+        }
     }
 
     /// Creates a new `Ptr`.
@@ -171,7 +173,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[inline]
     pub(crate) unsafe fn new_unchecked(ptr: *const T) -> Self {
         Self {
-            off: A::off_unchecked(ptr),
+            off: UnsafeCell::new(A::off_unchecked(ptr)),
             marker: PhantomData,
         }
     }
@@ -180,7 +182,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     /// Creates a new `Ptr` that is dangling.
     pub(crate) const fn dangling() -> Ptr<T, A> {
         Self {
-            off: u64::MAX,
+            off: UnsafeCell::new(u64::MAX),
             marker: PhantomData,
         }
     }
@@ -193,7 +195,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     /// `off` should be valid
     pub(crate) const unsafe fn from_off_unchecked(off: u64) -> Ptr<T, A> {
         Self {
-            off,
+            off: UnsafeCell::new(off),
             marker: PhantomData,
         }
     }
@@ -238,7 +240,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     /// Casts to a pointer of another type.
     pub(crate) fn cast<U: PSafe>(&self) -> Ptr<U, A> {
         Ptr::<U, A> {
-            off: self.off,
+            off: unsafe { UnsafeCell::new(*self.off.get()) },
             marker: PhantomData,
         }
     }
@@ -252,12 +254,12 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
 
 unsafe impl<A: MemPool, T: PSafe> PSafe for Ptr<[T], A> {}
 
-impl<A: MemPool, T: PSafe + ?Sized> Copy for Ptr<T, A> {}
+//impl<A: MemPool, T: PSafe + ?Sized> Copy for Ptr<T, A> {}
 
 impl<A: MemPool, T: PSafe + ?Sized> Clone for Ptr<T, A> {
     fn clone(&self) -> Self {
         Self {
-            off: self.off,
+            off: unsafe { UnsafeCell::new(*self.off.get()) },
             marker: PhantomData,
         }
     }
@@ -279,7 +281,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
             0
         };
         Self {
-            off,
+            off: UnsafeCell::new(off),
             marker: PhantomData,
         }
     }
@@ -288,7 +290,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[track_caller]
     pub(crate) fn from_ref(other: &T) -> Self {
         Self {
-            off: A::off(other as *const T).unwrap(),
+            off: UnsafeCell::new(A::off(other as *const T).unwrap()),
             marker: PhantomData,
         }
     }
@@ -297,7 +299,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[track_caller]
     pub(crate) fn from_mut(other: &mut T) -> Self {
         Self {
-            off: A::off(other as *const T).unwrap(),
+            off: UnsafeCell::new(A::off(other as *const T).unwrap()),
             marker: PhantomData,
         }
     }
@@ -306,7 +308,7 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
     #[track_caller]
     pub(crate) fn from_non_null(other: NonNull<T>) -> Self {
         Self {
-            off: A::off(other.as_ptr()).unwrap(),
+            off: UnsafeCell::new(A::off(other.as_ptr()).unwrap()),
             marker: PhantomData,
         }
     }
@@ -329,9 +331,11 @@ impl<A: MemPool, T: ?Sized> Ptr<T, A> {
 impl<A: MemPool, T: ?Sized> PartialEq for Ptr<T, A> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.off == other.off
+        unsafe {*self.off.get() == *other.off.get()}
     }
 }
+
+impl<A: MemPool, T: ?Sized> Eq for Ptr<T, A> {}
 
 // impl<A: MemPool, T: PSafe> PartialOrd<u64> for Ptr<T, A> {
 //     #[inline]

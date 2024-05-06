@@ -43,7 +43,7 @@ impl<A: MemPool> Page<A> {
                 let pg = utils::read::<Page<A>>(p);
                 pg.cap = cap - mem::size_of::<Page<A>>();
                 pg.len = 0;
-                pg.next = self.next;
+                pg.next = self.next.clone();
                 A::log64(A::off_unchecked(self.next.off_mut()), off, z);
                 A::perform(z);
                 pg.write(val, org_off)

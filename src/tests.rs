@@ -1383,13 +1383,8 @@ pub(crate) mod test {
 
         impl<'a> std::ops::AddAssign<&'a str> for MyString<'a> {
             fn add_assign(&mut self, other: &'a str) {
-                unsafe {
-                    let m: *const [u8] = self.value;
-                    let m: *mut [u8] = m as *mut [u8];
-                    let m: &mut [u8] = &mut *m;
-                    let mut v = m.to_vec();
-                    v.append(&mut other.as_bytes().to_vec());
-                }
+                let mut v = self.value.to_vec();
+                v.append(&mut other.as_bytes().to_vec());
             }
         }
         impl<'a> From<&'a str> for MyString<'a> {

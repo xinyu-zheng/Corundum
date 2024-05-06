@@ -85,8 +85,6 @@ pub enum Notifier<A: MemPool> {
     None,
 }
 
-impl<A: MemPool> Copy for Notifier<A> {}
-
 impl<A: MemPool> Clone for Notifier<A> {
     fn clone(&self) -> Self {
         use Notifier::*;
@@ -154,11 +152,9 @@ impl<A: MemPool> Notifier<A> {
 /// 
 pub struct Log<A: MemPool>(LogEnum, Notifier<A>);
 
-impl<A: MemPool> Copy for Log<A> {}
-
 impl<A: MemPool> Clone for Log<A> {
     fn clone(&self) -> Self {
-        Self(self.0, self.1)
+        Self(self.0, self.1.clone())
     }
 }
 

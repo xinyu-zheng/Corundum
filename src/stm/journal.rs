@@ -6,6 +6,7 @@ use crate::stm::*;
 use crate::*;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::array;
 
 #[cfg(feature = "check_double_free")]
 use std::collections::HashSet;
@@ -82,7 +83,7 @@ impl<A: MemPool> !LooseTxInUnsafe for Journal<A> {}
 impl<A: MemPool> !std::panic::RefUnwindSafe for Journal<A> {}
 impl<A: MemPool> !std::panic::UnwindSafe for Journal<A> {}
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Page<A: MemPool> {
     len: usize,
     head: usize,
@@ -169,7 +170,8 @@ impl<A: MemPool> Page<A> {
     unsafe fn ignore(&mut self) {
         self.len = 0;
         self.head = 0;
-        self.logs = [Default::default(); PAGE_LOG_SLOTS];
+        self.logs = array::from_fn(|_| Default::default());
+
     }
 
     unsafe fn clear(&mut self, 
@@ -192,7 +194,7 @@ impl<A: MemPool> Page<A> {
     }
 
     fn into_iter(&self) -> std::vec::IntoIter<Log<A>> {
-        Vec::from(self.logs).into_iter()
+        Vec::from(self.logs.clone()).into_iter()
     }
 }
 
@@ -296,8 +298,8 @@ impl<A: MemPool> Journal<A> {
             let page = Page::<A> {
                 len: 0,
                 head: 0,
-                next: self.pages,
-                logs: [Default::default(); PAGE_LOG_SLOTS]
+                next: self.pages.clone(),
+                logs: array::from_fn(|_| Default::default())
             };
             let (_, off, _, z) = A::atomic_new(page);
             A::log64(A::off_unchecked(self.pages.off_ref()), off, z);
@@ -309,7 +311,7 @@ impl<A: MemPool> Journal<A> {
 
             A::perform(z);
 
-            self.pages
+            self.pages.clone()
         }
     }
 
@@ -321,7 +323,7 @@ impl<A: MemPool> Journal<A> {
         } else if self.pages.is_full() {
             self.new_page()
         } else {
-            self.pages
+            self.pages.clone()
         };
         page.as_mut().write(log, notifier)
     }
@@ -357,7 +359,7 @@ impl<A: MemPool> Journal<A> {
         let mut i = 1;
         let mut _cidx = 1;
         let mut log_cnt = HashMap::<String, u64>::new();
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         let mut pgs = vec![];
         while let Some(page) = curr.as_option() {
             if info_level > 2 {
@@ -379,7 +381,7 @@ impl<A: MemPool> Journal<A> {
             }
 
             i += 1;
-            curr = page.next;
+            curr = page.next.clone();
         }
 
         let mut total_logs = 0;
@@ -428,23 +430,23 @@ impl<A: MemPool> Journal<A> {
         #[cfg(any(feature = "use_pspd", feature = "use_vspd"))] {
             self.spd.commit();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.notify();
-            curr = page.next;
+            curr = page.next.clone();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.commit_data();
-            curr = page.next;
+            curr = page.next.clone();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.commit_dealloc(
                 #[cfg(feature = "check_double_free")]
                 check_double_free
             );
-            curr = page.next;
+            curr = page.next.clone();
         }
         sfence();
         self.set(JOURNAL_COMMITTED);
@@ -458,23 +460,23 @@ impl<A: MemPool> Journal<A> {
         #[cfg(any(feature = "use_pspd", feature = "use_vspd"))] {
             self.spd.rollback();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.notify();
-            curr = page.next;
+            curr = page.next.clone();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.rollback();
-            curr = page.next;
+            curr = page.next.clone();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.rollback_dealloc(
                 #[cfg(feature = "check_double_free")]
                 check_double_free
             );
-            curr = page.next;
+            curr = page.next.clone();
         }
         sfence();
         self.set(JOURNAL_COMMITTED);
@@ -485,12 +487,12 @@ impl<A: MemPool> Journal<A> {
         #[cfg(feature = "check_double_free")]
         check_double_free: &mut HashSet<u64>
     ) {
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.notify();
-            curr = page.next;
+            curr = page.next.clone();
         }
-        let mut curr = self.pages;
+        let mut curr = self.pages.clone();
         let resume = self.resume();
         if !self.is_set(JOURNAL_COMMITTED) || resume {
             let rollback = !resume || !self.is_set(JOURNAL_COMMITTED);
@@ -506,7 +508,7 @@ impl<A: MemPool> Journal<A> {
                     #[cfg(feature = "check_double_free")]
                     check_double_free
                 );
-                curr = page.next;
+                curr = page.next.clone();
             }
             self.set(JOURNAL_COMMITTED);
         }
@@ -535,7 +537,7 @@ impl<A: MemPool> Journal<A> {
 
         #[cfg(not(feature = "pin_journals"))] {
             while let Some(page) = self.pages.as_option() {
-                let nxt = page.next;
+                let nxt = page.next.clone();
                 page.clear(
                     #[cfg(feature = "check_double_free")]
                     check_double_free
@@ -741,7 +743,7 @@ impl<A: MemPool> Debug for Journal<A> {
         let mut curr = self.pages.clone();
         while let Some(page) = curr.as_option() {
             page.fmt(f)?;
-            curr = page.next;
+            curr = page.next.clone();
         }
         Ok(())
     }

@@ -145,6 +145,7 @@
 //! 
 //! [`pclone`]: ./struct.Prc.html#method.pclone
 //! 
+use std::cell::UnsafeCell;
 use std::panic::RefUnwindSafe;
 use std::panic::UnwindSafe;
 use crate::alloc::{MemPool, PmemUsage};
@@ -197,7 +198,7 @@ impl<A: MemPool> Debug for Counter<A> {
 }
 
 pub struct PrcBox<T: ?Sized, A: MemPool> {
-    counter: Counter<A>,
+    counter: UnsafeCell<Counter<A>>,
 
     #[cfg(not(feature = "no_volatile_pointers"))]
     vlist: VCell<VWeakList, A>,
@@ -292,6 +293,9 @@ pub struct Prc<T: PSafe + ?Sized, A: MemPool> {
     phantom: PhantomData<T>,
 }
 
+unsafe impl<T: PSafe + ?Sized, A: MemPool> TxInSafe for Prc<T, A> {}
+impl<T: PSafe + ?Sized, A: MemPool> UnwindSafe for Prc<T, A> {}
+impl<T: PSafe + ?Sized, A: MemPool> RefUnwindSafe for Prc<T, A> {}
 impl<T: ?Sized, A: MemPool> !TxOutSafe for Prc<T, A> {}
 impl<T: ?Sized, A: MemPool> !Send for Prc<T, A> {}
 impl<T: ?Sized, A: MemPool> !Sync for Prc<T, A> {}
@@ -319,7 +323,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
         unsafe {
             let ptr = Ptr::new_unchecked(A::new(
                 PrcBox::<T, A> {
-                    counter: Counter {
+                    counter: UnsafeCell::new(Counter {
                         strong: 1,
                         weak: 1,
 
@@ -334,7 +338,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
                         temp: TCell::new_invalid(None),
 
                         phantom: PhantomData
-                    },
+                    }),
 
                     #[cfg(not(feature = "no_volatile_pointers"))]
                     vlist: VCell::new(VWeakList::default()),
@@ -376,7 +380,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
         unsafe {
             Prc::from_inner(Ptr::from_mut(A::new(
                 PrcBox {
-                    counter: Counter {
+                    counter: UnsafeCell::new(Counter {
                         strong: 1,
                         weak: 1,
 
@@ -391,7 +395,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
                         temp: TCell::new_invalid(None),
 
                         phantom: PhantomData
-                    },
+                    }),
 
                     #[cfg(not(feature = "no_volatile_pointers"))]
                     vlist: VCell::new(VWeakList::default()),
@@ -435,7 +439,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
 
     /// Owns contents of `p` without cloning, leaving `p` untouched
     pub fn from(p: Prc<T, A>) -> Self {
-        let res = Self::from_inner(p.ptr);
+        let res = Self::from_inner(p.ptr.clone());
         mem::forget(p);
         res
     }
@@ -602,7 +606,7 @@ impl<T: PSafe + ?Sized, A: MemPool> Prc<T, A> {
     pub fn downgrade(this: &Self, journal: &Journal<A>) -> Weak<T, A> {
         this.inc_weak(journal);
         debug_assert!(!this.ptr.is_dangling());
-        Weak { ptr: this.ptr }
+        Weak { ptr: this.ptr.clone() }
     }
 
     /// Creates a new `Weak` volatile to this allocation.
@@ -776,7 +780,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
                 unsafe {
                     let new = A::atomic_new(
                         PrcBox::<T, A> {
-                            counter: Counter {
+                            counter: UnsafeCell::new(Counter {
                                 strong: 1,
                                 weak: 1,
         
@@ -791,7 +795,7 @@ impl<T: PSafe, A: MemPool> Prc<T, A> {
                                 temp: TCell::new_invalid(None),
 
                                 phantom: PhantomData
-                            },
+                            }),
         
                             #[cfg(not(feature = "no_volatile_pointers"))]
                             vlist: VCell::new(VWeakList::default()),
@@ -897,7 +901,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PClone<A> for Prc<T, A> {
     /// ```
     fn pclone(&self, journal: &Journal<A>) -> Prc<T, A> {
         self.inc_strong(journal);
-        Self::from_inner(self.ptr)
+        Self::from_inner(self.ptr.clone())
     }
 }
 
@@ -1027,6 +1031,9 @@ pub struct Weak<T: PSafe + ?Sized, A: MemPool> {
     ptr: Ptr<PrcBox<T, A>, A>,
 }
 
+unsafe impl<T: PSafe + ?Sized, A: MemPool> TxInSafe for Weak<T, A> {}
+impl<T: PSafe + ?Sized, A: MemPool> UnwindSafe for Weak<T, A> {}
+impl<T: PSafe + ?Sized, A: MemPool> RefUnwindSafe for Weak<T, A> {}
 impl<T: ?Sized, A: MemPool> !TxOutSafe for Weak<T, A> {}
 impl<T: ?Sized, A: MemPool> !Send for Weak<T, A> {}
 impl<T: ?Sized, A: MemPool> !Sync for Weak<T, A> {}
@@ -1085,7 +1092,7 @@ impl<T: PSafe + ?Sized, A: MemPool> Weak<T, A> {
             None
         } else {
             inner.inc_strong(journal);
-            Some(Prc::from_inner(self.ptr))
+            Some(Prc::from_inner(self.ptr.clone()))
         }
     }
 
@@ -1145,7 +1152,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PClone<A> for Weak<T, A> {
         if let Some(inner) = self.inner() {
             inner.inc_weak(journal)
         }
-        Weak { ptr: self.ptr }
+        Weak { ptr: self.ptr.clone() }
     }
 }
 
@@ -1275,15 +1282,17 @@ trait PrcBoxPtr<T: PSafe + ?Sized, A: MemPool> {
 impl<T: PSafe + ?Sized, A: MemPool> PrcBoxPtr<T, A> for Prc<T, A> {
     #[inline(always)]
     fn count(&self) -> &mut Counter<A> {
-        let ret = &mut self.ptr.get_mut().counter;
+        unsafe { 
+            let ret = &mut *self.ptr.get_mut().counter.get();
 
-        #[cfg(any(feature = "use_pspd", feature = "use_vspd"))] unsafe {
-            if let Some(inner) = *ret.temp {
-                return &mut *inner;
+            #[cfg(any(feature = "use_pspd", feature = "use_vspd"))] unsafe {
+                if let Some(inner) = *ret.temp {
+                    return &mut *inner;
+                }
             }
-        }
 
-        ret
+            ret
+        }
     }
 }
 
@@ -1291,10 +1300,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PrcBoxPtr<T, A> for PrcBox<T, A> {
     #[inline(always)]
     fn count(&self) -> &mut Counter<A> {
         let ret = unsafe {
-            let ptr: *const Self = self;
-            let ptr: *mut Self = ptr as *mut Self;
-            let rcbox: &mut Self = &mut *ptr;
-            &mut rcbox.counter
+            &mut *self.counter.get()
         };
 
         #[cfg(any(feature = "use_pspd", feature = "use_vspd"))] unsafe {
@@ -1397,12 +1403,14 @@ impl<T: PSafe + ?Sized, A: MemPool> VWeak<T, A> {
     }
 
     pub fn promote(&self, journal: &Journal<A>) -> Option<Prc<T, A>> {
-        let inner = self.inner()?;
-        let strong = inner.counter.strong;
-        if strong == 0 {
-            None
-        } else {
-            unsafe { Some(Prc::from_ptr(self.ptr as *const _ as *mut _, journal)) }
+        unsafe {
+            let inner = self.inner()?;
+            let strong = (*inner.counter.get()).strong;
+            if strong == 0 {
+                None
+            } else {
+                Some(Prc::from_ptr(self.ptr as *const _ as *mut _, journal))
+            }
         }
     }
 

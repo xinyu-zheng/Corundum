@@ -740,7 +740,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PClone<A> for Parc<T, A> {
             std::process::abort();
         }
 
-        Self::from_inner(self.ptr)
+        Self::from_inner(self.ptr.clone())
     }
 }
 
@@ -964,7 +964,7 @@ impl<T: PSafe + ?Sized, A: MemPool> Weak<T, A> {
         }
 
         lock_free_fetch_inc(&mut inner.counter.strong, j);
-        Some(Parc::from_inner(self.ptr))
+        Some(Parc::from_inner(self.ptr.clone()))
     }
 
     /// Gets the number of strong (`Parc`) pointers pointing to this allocation.
@@ -1068,7 +1068,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PClone<A> for Weak<T, A> {
         let inner = if let Some(inner) = self.inner() {
             inner
         } else {
-            return Weak { ptr: self.ptr };
+            return Weak { ptr: self.ptr.clone() };
         };
 
         // See comments in Arc::clone() for why this is relaxed.  This can use a
@@ -1083,7 +1083,7 @@ impl<T: PSafe + ?Sized, A: MemPool> PClone<A> for Weak<T, A> {
             std::process::abort();
         }
 
-        Weak { ptr: self.ptr }
+        Weak { ptr: self.ptr.clone() }
     }
 }
 
