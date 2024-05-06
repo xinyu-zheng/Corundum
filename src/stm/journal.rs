@@ -277,7 +277,7 @@ impl<A: MemPool> Journal<A> {
         if page.is_dangling() {
             self.new_page()
         } else if page.is_full() {
-            self.next_page(page.next)
+            self.next_page(page.next.clone())
         } else {
             page
         }
@@ -286,7 +286,7 @@ impl<A: MemPool> Journal<A> {
     /// Writes a new log to the journal
     #[cfg(feature = "pin_journals")]
     pub(crate) fn write(&self, log: LogEnum, notifier: Notifier<A>) -> Ptr<Log<A>, A> {
-        let mut page = self.next_page(self.current);
+        let mut page = self.next_page(self.current.clone());
         page.as_mut().write(log, notifier)
     }
 
@@ -332,7 +332,7 @@ impl<A: MemPool> Journal<A> {
     #[cfg(feature = "pin_journals")]
     pub unsafe fn drop_pages(&mut self) {
         while let Some(page) = self.pages.clone().as_option() {
-            let nxt = page.next;
+            let nxt = page.next.clone();
             let z = A::pre_dealloc(page.as_mut_ptr() as *mut u8, std::mem::size_of::<Page<A>>());
             A::log64(A::off_unchecked(self.pages.off_ref()), nxt.off(), z);
             A::perform(z);
@@ -532,7 +532,7 @@ impl<A: MemPool> Journal<A> {
                 );
                 page = p.next.as_option();
             }
-            self.current = self.pages;
+            self.current = self.pages.clone();
         }
 
         #[cfg(not(feature = "pin_journals"))] {
