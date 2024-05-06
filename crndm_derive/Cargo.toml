@@ -19,7 +19,6 @@ quote = "1.0"
 regex = "1"
 proc-macro-error = "1"
 cbindgen = "0.20.0"
-tempfile = "3.0"
 
 [dependencies.syn]
 version = "1.0"
