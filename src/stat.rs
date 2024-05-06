@@ -93,7 +93,7 @@ static mut STAT: LazyCell<Mutex<HashMap<(ThreadId, &'static str), Stat>>> =
 #[inline]
 fn hist_enabled() -> bool {
     unsafe {
-        if let Some(hist) = &mut HIST {
+        if let Some(hist) = &mut *std::ptr::addr_of_mut!(HIST) {
             *hist
         } else {
             if let Some(val) = std::env::var_os("HIST") {
@@ -110,7 +110,7 @@ fn hist_enabled() -> bool {
 #[inline]
 fn points_enabled() -> bool {
     unsafe {
-        if let Some(points) = &mut POINTS {
+        if let Some(points) = &mut *std::ptr::addr_of_mut!(POINTS) {
             *points
         } else {
             if let Some(val) = std::env::var_os("POINTS") {

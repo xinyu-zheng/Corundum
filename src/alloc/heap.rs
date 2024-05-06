@@ -149,7 +149,7 @@ unsafe impl MemPoolTraits for Heap {
 
     unsafe fn journals_head() -> &'static u64 {
         static mut HEAD: u64 = u64::MAX;
-        &HEAD
+        &*std::ptr::addr_of!(HEAD)
     }
 
     unsafe fn close() -> Result<()> {

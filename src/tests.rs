@@ -1159,7 +1159,7 @@ pub(crate) mod test {
             if IDX == 16 {
                 IDX = 0;
                 let mut f = File::open("/dev/urandom").unwrap();
-                f.read_exact(&mut BUF).unwrap();
+                f.read_exact(&mut *std::ptr::addr_of_mut!(BUF)).unwrap();
             }
             BUF[IDX]
         }

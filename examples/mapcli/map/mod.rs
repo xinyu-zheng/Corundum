@@ -8,11 +8,8 @@ mod vbtree;
 
 pub use btree::*;
 pub use ctree::*;
-pub use pbtree::*;
 pub use rbtree::*;
 pub use rtree::*;
-pub use ubtree::*;
-pub use vbtree::*;
 
 use corundum::default::*;
 

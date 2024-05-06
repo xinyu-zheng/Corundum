@@ -129,6 +129,7 @@
 #![allow(dead_code)]
 #![allow(incomplete_features)]
 #![allow(type_alias_bounds)]
+#![allow(internal_features)]
 
 pub(crate) const PAGE_LOG_SLOTS: usize = 128;
 

@@ -37,7 +37,7 @@ impl<T: ?Sized> !Sync for NonNull<T> {}
 impl<T: PSafe + ?Sized> PartialEq for NonNull<T> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.ptr == other.ptr
+        std::ptr::addr_eq(self.ptr, other.ptr)
     }
 }
 
@@ -170,7 +170,7 @@ impl<T: ?Sized, A: MemPool> !Sync for LogNonNull<T, A> {}
 impl<T: PSafe + ?Sized, A: MemPool> PartialEq for LogNonNull<T, A> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.ptr == other.ptr
+        std::ptr::addr_eq(self.ptr, other.ptr)
     }
 }
 

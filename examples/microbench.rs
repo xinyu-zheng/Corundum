@@ -283,7 +283,7 @@ mod run {
             let layout = std::alloc::Layout::from_size_align(*s * 8, 4).unwrap();
             measure!(format!("malloc({})", *s * 8), cnt, {
                 for _ in 0..cnt {
-                    unsafe{ std::alloc::alloc(layout); }
+                    unsafe{ let _ = std::alloc::alloc(layout); }
                 }
             });
         }
