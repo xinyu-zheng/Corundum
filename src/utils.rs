@@ -280,7 +280,7 @@ pub struct SpinLock {
 
 impl SpinLock {
     pub fn acquire(lock: *mut u8) -> Self {
-        unsafe { while std::intrinsics::atomic_cxchg_acquire_relaxed(lock, 0, 1).0 == 1 {} }
+        unsafe { while std::intrinsics::atomic_cxchg_acqrel_acquire(lock, 0, 1).0 == 1 {} }
         Self { lock }
     }
 }
