@@ -176,7 +176,7 @@ impl<A: MemPool> BuddyAlg<A> {
 
             #[cfg(any(feature = "no_pthread", windows))] {
                 let tid = std::thread::current().id().as_u64().get();
-                while std::intrinsics::atomic_cxchg_acqrel(&mut self.mutex, 0, tid).0 != tid {}
+                while std::intrinsics::atomic_cxchg_acqrel_acquire(&mut self.mutex, 0, tid).0 != tid {}
             }
         }
     }
@@ -188,7 +188,7 @@ impl<A: MemPool> BuddyAlg<A> {
             libc::pthread_mutex_unlock(&mut self.mutex.0); 
 
             #[cfg(any(feature = "no_pthread", windows))]
-            std::intrinsics::atomic_store_rel(&mut self.mutex, 0);
+            std::intrinsics::atomic_store_release(&mut self.mutex, 0);
         }
     }
 
