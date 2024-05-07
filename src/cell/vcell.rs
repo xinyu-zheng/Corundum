@@ -60,7 +60,7 @@ impl<T: Default + VSafe, A: MemPool> VCell<T, A> {
 
     #[inline]
     pub(crate) fn as_mut(&self) -> &mut T {
-        unsafe { &mut *self.value.get() }
+        unsafe { utils::as_mut(self).force() }
     }
 
     #[inline]

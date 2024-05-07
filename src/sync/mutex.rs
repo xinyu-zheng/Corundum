@@ -262,7 +262,7 @@ impl<T, A: MemPool> PMutex<T, A> {
             #[cfg(any(feature = "no_pthread", windows))]
             let result = {
                 let tid = std::thread::current().id().as_u64().get();
-                intrinsics::atomic_cxchg_acqrel(lock, 0, tid).0 == tid
+                intrinsics::atomic_cxchg_acqrel_acquire(lock, 0, tid).0 == tid
             };
 
             if result {
@@ -274,7 +274,7 @@ impl<T, A: MemPool> PMutex<T, A> {
                     libc::pthread_mutex_unlock(lock);
 
                     #[cfg(any(feature = "no_pthread", windows))] 
-                    intrinsics::atomic_store_rel(lock, 0);
+                    intrinsics::atomic_store_release(lock, 0);
 
                     panic!("Cannot have multiple instances of MutexGuard");
                 }
