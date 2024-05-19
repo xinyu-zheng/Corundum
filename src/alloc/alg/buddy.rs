@@ -5,6 +5,7 @@ use std::ops::{Index,IndexMut};
 use std::marker::PhantomData;
 use std::mem;
 
+
 #[repr(transparent)]
 #[derive(Clone, Debug)]
 /// Buddy memory block
@@ -1003,6 +1004,7 @@ macro_rules! pool {
     ($mod:ident, $name:ident) => {
         /// The default allocator module
         pub mod $mod {
+            #![allow(unused_imports)]
             use memmap::*;
             use std::collections::hash_map::DefaultHasher;
             use std::collections::{HashMap,HashSet};
