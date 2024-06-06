@@ -45,7 +45,7 @@ pub fn persist<T: ?Sized>(ptr: *const T, len: usize, fence: bool) {
             let off = (off >> 12) << 12;
             let len = end - off;
             let ptr = off as *const u8;
-            if libc::persist(
+            if libc::msync(
                 ptr as *mut libc::c_void,
                 len,
                 libc::MS_SYNC | libc::MS_INVALIDATE,
