@@ -4,6 +4,7 @@ dir_path=$(dirname $full_path)
 
 all=true
 scale=false
+vgrep=false
 pmdk=false
 atlas=false
 go=false
@@ -16,6 +17,7 @@ function help() {
     echo "usage: $0 [OPTIONS]"
     echo "OPTIONS:"
     echo "    -s, --scale           Test scalability (imperfect isolation)"
+    echo "    -v, --vgrep           Test volatile scalability (imperfect isolation)"
     echo "    -p, --pmdk            Run PMDK performance tests"
     echo "    -a, --atlas           Run Atlas performance tests"
     echo "    -g, --go-pmem         Run go-pmem performance tests"
@@ -35,6 +37,8 @@ do
         -h|--help)           help && exit 0
             ;;
         -s|--scale)          all=false && scale=true
+            ;;
+        -v|--vgrep)          all=false && vgrep=true
             ;;
         -p|--pmdk)           all=false && pmdk=true
             ;;
@@ -75,6 +79,7 @@ rustup default nightly
 
 ls -1 $dir_path/inputs/wc/* > $dir_path/files.list
 mkdir -p $dir_path/outputs/wc
+mkdir -p $dir_path/outputs/vwc
 mkdir -p $dir_path/outputs/perf
 
 rs=(1)
@@ -88,6 +93,22 @@ if $all || $scale; then
             rm -f $pool
             echo -e "\nRunning scalability test $r:$c ..."
             CPUS=$(($r+$c)) perf stat -o $dir_path/outputs/wc/$r-$c.out -a -C 0-$(($r+$c-1)) taskset -c 0-$(($r+$c-1)) $dir_path/../target/release/examples/grep -N -r $r -c $c -f $pool $dir_path/files.list > $dir_path/outputs/wc/$r-$c.res
+        done
+    done
+    echo
+fi
+
+rs=(1)
+cs=`seq 0 15`
+if $all || $vgrep; then
+    cd $dir_path/..
+    cargo build --release --example vgrep --features="$features"
+
+    for r in ${rs[@]}; do
+        for c in ${cs[@]}; do
+            rm -f $pool
+            echo -e "\nRunning vgrep test $r:$c ..."
+            CPUS=$(($r+$c)) perf stat -o $dir_path/outputs/vwc/$r-$c.out -a -C 0-$(($r+$c-1)) taskset -c 0-$(($r+$c-1)) $dir_path/../target/release/examples/vgrep -N -r $r -c $c -f $pool $dir_path/files.list > $dir_path/outputs/vwc/$r-$c.res
         done
     done
     echo

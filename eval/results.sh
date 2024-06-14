@@ -6,6 +6,7 @@ dir_path=$(dirname $full_path)
 
 all=true
 scale=false
+vgrep=false
 pmdk=false
 atlas=false
 go=false
@@ -17,6 +18,7 @@ function help() {
     echo "usage: $0 [OPTIONS]"
     echo "OPTIONS:"
     echo "    -s, --scale           Test scalability (imperfect isolation)"
+    echo "    -v, --vgrep           Test volatile scalability (imperfect isolation)"
     echo "    -p, --pmdk            Run PMDK performance tests"
     echo "    -a, --atlas           Run Atlas performance tests"
     echo "    -g, --go-pmem         Run go-pmem performance tests"
@@ -32,6 +34,8 @@ do
         -h|--help)           help && exit 0
             ;;
         -s|--scale)          all=false && scale=true
+            ;;
+        -v|--vgrep)          all=false && vgrep=true
             ;;
         -p|--pmdk)           all=false && pmdk=true
             ;;
@@ -142,6 +146,27 @@ if $all || $scale; then
     done >> $dir_path/outputs/scale.csv
 fi
 
+if $all || $vgrep; then
+    rs=(1)
+    cs=`seq 0 15`
+    
+    echo -n "p/c," > $dir_path/outputs/vgrep.csv
+    (for c in ${cs[@]}; do
+        echo -n "$c,"
+    done; echo) >> $dir_path/outputs/vgrep.csv
+
+    b=$(read_time "$dir_path/outputs/vwc/1-0.out")
+    for r in ${rs[@]}; do
+        echo -n "p=$r,"
+        for c in ${cs[@]}; do
+            m=$(read_time "$dir_path/outputs/vwc/$r-$c.out")
+            g=$(echo - | awk "{print $b / $m}")
+            echo -n $g,
+        done
+        echo
+    done >> $dir_path/outputs/vgrep.csv
+fi
+
 function avg() {
     echo $(cat $1 | grep -oP "$2 .+avg\\(ns\\): \\d+\\.\\d{3} " | grep -oP '(\d+\.\d{3}) ')
 }
@@ -201,6 +226,11 @@ fi
 if $all || $scale; then
     echo -e "\nScalability Results"
     cat $dir_path/outputs/scale.csv | perl -pe 's/((?<=,)|(?<=^)),/ ,/g;' | column -t -s,
+fi
+
+if $all || $vgrep; then
+    echo -e "\nVolatile Scalability Results"
+    cat $dir_path/outputs/vgrep.csv | perl -pe 's/((?<=,)|(?<=^)),/ ,/g;' | column -t -s,
 fi
 
 if $all || $micro; then
