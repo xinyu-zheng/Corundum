@@ -274,7 +274,6 @@ impl<A: MemPool> BuddyAlg<A> {
 
     #[inline]
     unsafe fn find_free_memory(&mut self, idx: usize, split: bool) -> Option<u64> {
-        println!("last_idx is {}", self.last_idx);
         if idx > self.last_idx {
             // TODO: Check if there are enough free adjacent blocks to add up
             //       to the requested size.
@@ -322,11 +321,8 @@ impl<A: MemPool> BuddyAlg<A> {
     /// Otherwise, `u64::MAX` is returned.
     pub unsafe fn alloc_impl(&mut self, len: usize, perform: bool) -> u64 {
         self.lock();
-        println!("len before is {}", len);
         let idx = get_idx(len);
-        println!("idx is {}", idx);
         let len = 1 << idx;
-        println!("len after is {}", len);
 
         if len > self.available {
             self.discard();
@@ -334,7 +330,6 @@ impl<A: MemPool> BuddyAlg<A> {
         } else {
             match self.find_free_memory(idx, false) {
                 Some(off) => {
-                    println!("off is {}", off);
                     #[cfg(feature = "verbose")]
                     debug_alloc::<A>(off, len, self.used(), self.used() + (1 << idx));
 
@@ -1097,9 +1092,7 @@ macro_rules! pool {
                     } else {
                         num_cpus::get()
                     };
-                    println!("cpus is {}", cpus);
                     assert_ne!(cpus, 0);
-                    println!("size is {}", size);
                     let quota = size / cpus;
                     self.zone = Zones::new(cpus, mem::size_of::<Self>(), quota);
                     for i in 0..cpus {
@@ -1338,7 +1331,6 @@ macro_rules! pool {
                         for i in 0..cnt {
                             let z = (cpu+i)%cnt;
                             let a = inner.zone[z].alloc_impl(size, false);
-                            println!("a is {}", a);
                             if a != u64::MAX {
                                 return (Self::get_mut_unchecked(a), a, size, z);
                             }

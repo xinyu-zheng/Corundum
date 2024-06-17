@@ -855,7 +855,6 @@ where
         log!(Self, White, "ALLOC", "TYPE: {}", std::any::type_name::<T>());
 
         let size = mem::size_of::<T>();
-        println!("size is {}", size);
         let (raw, off, len, z) = Self::pre_alloc(size);
         if raw.is_null() {
             panic!("Memory exhausted");
