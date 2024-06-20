@@ -35,7 +35,7 @@ no_flush_updates = []
 no_dyn_borrow_checking = []
 no_pthread = []
 cbindings = []
-default = ["cbindings", "use_msync"]
+default = ["cbindings"]
 
 [dependencies]
 memmap = "0.7.0"

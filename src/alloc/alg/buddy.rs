@@ -1093,7 +1093,7 @@ macro_rules! pool {
                         num_cpus::get()
                     };
                     assert_ne!(cpus, 0);
-                    let quota = size / cpus;
+                    let quota = size / cpus / 8 * 8;
                     self.zone = Zones::new(cpus, mem::size_of::<Self>(), quota);
                     for i in 0..cpus {
                         self.zone[i].init((quota * i) as u64, quota);
