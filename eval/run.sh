@@ -5,6 +5,7 @@ dir_path=$(dirname $full_path)
 all=true
 scale=false
 vgrep=false
+size=false
 pmdk=false
 atlas=false
 go=false
@@ -40,6 +41,8 @@ do
             ;;
         -v|--vgrep)          all=false && vgrep=true
             ;;
+        --size)              all=false && size=true
+            ;;
         -p|--pmdk)           all=false && pmdk=true
             ;;
         -a|--atlas)          all=false && atlas=true
@@ -55,6 +58,8 @@ do
         -n|--no-run)         all=false
             ;;
         -j|--pin-journals)   features="pin_journals,$features"
+            ;;
+        --msync)             features="use_msync,$features"
             ;;
         -o|--clflushopt)     nofopt=0 && features="use_clflushopt,$features"
             ;;
@@ -195,6 +200,15 @@ if $all || $go; then
     echo "Running performance test (go-pmem-B+Tree:$i)..."
     perf stat -o $dir_path/outputs/perf/go-$i.out -d $dir_path/go/btree_map $pool < $dir_path/inputs/perf/$i > /dev/null
     done
+fi
+
+if $all || $size; then
+    cd $dir_path/..
+    cargo build --release --example size --features="$features"
+
+    rm -f $pool
+    echo "Running performance test (Corundum-size)..."
+    CPUS=1 perf stat -o $dir_path/outputs/perf/crndm-size.out -d $dir_path/../target/release/examples/size $pool
 fi
 
 if $all || $crndm; then

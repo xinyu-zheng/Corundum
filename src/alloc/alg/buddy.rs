@@ -1171,10 +1171,13 @@ macro_rules! pool {
                             Err("Invalid pool file".to_string())
                         } else {
                             let path = PathBuf::from(filename);
-                            let file = OpenOptions::new()
-                                .read(true)
-                                .write(true)
-                                .create(true)
+                            let mut options = OpenOptions::new();
+                            options.read(true).write(true).create(true);
+                            //if cfg!(unix) {
+                            //    println!("O_DIRECT");
+                            //    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut options, libc::O_DIRECT);
+                            //}
+                            let file = options
                                 .open(&path)
                                 .unwrap();
     
